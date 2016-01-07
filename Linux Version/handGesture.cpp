@@ -66,13 +66,12 @@ bool HandGesture::detectIfHand(){
 	double h = bRect_height; 
 	double w = bRect_width;
 	isHand=true;
+	cout << "\rfinger tips = " << fingerTips.size() << flush;
 	if(fingerTips.size() > 5 ){
 		isHand=false;
 	}else if(h==0 || w == 0){
 		isHand=false;
 	}else if(h/w > 4 || w/h >4){
-		isHand=false;	
-	}else if(bRect.x<20){
 		isHand=false;	
 	}	
 	return isHand;
@@ -236,14 +235,12 @@ void HandGesture::checkForOneFinger(MyImage *m){
    	    Point v=(*d);
 		if(v.y<highestP.y){
 			highestP=v;
-			cout<<highestP.y<<endl;
 		}
-		d++;	
+		d++;
 	}int n=0;
 	d=hullP[cIdx].begin();
 	while( d!=hullP[cIdx].end() ) {
    	    Point v=(*d);
-			cout<<"x " << v.x << " y "<<  v.y << " highestpY " << highestP.y<< "ytol "<<yTol<<endl;
 		if(v.y<highestP.y+yTol && v.y!=highestP.y && v.x!=highestP.x){
 			n++;
 		}

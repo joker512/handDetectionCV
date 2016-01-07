@@ -17,6 +17,8 @@ using namespace cv;
 using namespace std;
 
 /* Global Variables  */
+// hand detection zone width and height
+const int ROI_SIZE = 650;
 int fontFace = FONT_HERSHEY_PLAIN;
 int square_len;
 int avgColor[NSAMPLES][3] ;
@@ -82,7 +84,7 @@ void waitForPalmCover(MyImage* m){
 		//	imwrite("./images/waitforpalm1.jpg",m->src);
 		}
 
-		imshow("img1", m->src);
+		imshow("opencv", m->src);
 		out << m->src;
         if(cv::waitKey(30) >= 0) break;
 	}
@@ -134,7 +136,7 @@ void average(MyImage *m){
 		cvtColor(m->src,m->src,COL2ORIGCOL);
 		string imgText=string("Finding average color of hand");
 		printText(m->src,imgText);	
-		imshow("img1", m->src);
+		imshow("opencv", m->src);
         if(cv::waitKey(30) >= 0) break;
 	}
 }
@@ -204,21 +206,19 @@ void produceBinaries(MyImage *m){
 }
 
 void initWindows(MyImage m){
-    namedWindow("trackbars",CV_WINDOW_KEEPRATIO);
-    namedWindow("img1",CV_WINDOW_FULLSCREEN);
+    namedWindow("blackwhite",CV_WINDOW_KEEPRATIO);
+    namedWindow("opencv", CV_WINDOW_KEEPRATIO);
 }
 
 void showWindows(MyImage m){
-	pyrDown(m.bw,m.bw);
-	pyrDown(m.bw,m.bw);
-	Rect roi( Point( 3*m.src.cols/4,0 ), m.bw.size());
+	Rect roi( Point( m.src.cols - m.bw.cols, 0 ), m.bw.size());
 	vector<Mat> channels;
 	Mat result;
 	for(int i=0;i<3;i++)
 		channels.push_back(m.bw);
 	merge(channels,result);
 	result.copyTo( m.src(roi));
-	imshow("img1",m.src);	
+	imshow("opencv",m.src);
 }
 
 int findBiggestContour(vector<vector<Point> > contours){
@@ -235,10 +235,6 @@ int findBiggestContour(vector<vector<Point> > contours){
 
 void myDrawContours(MyImage *m,HandGesture *hg){
 	drawContours(m->src,hg->hullP,hg->cIdx,cv::Scalar(200,0,0),2, 8, vector<Vec4i>(), 0, Point());
-
-
-
-
 	rectangle(m->src,hg->bRect.tl(),hg->bRect.br(),Scalar(0,0,200));
 	vector<Vec4i>::iterator d=hg->defects[hg->cIdx].begin();
 	int fontFace = FONT_HERSHEY_PLAIN;
@@ -277,63 +273,128 @@ void myDrawContours(MyImage *m,HandGesture *hg){
 }
 
 void makeContours(MyImage *m, HandGesture* hg){
-	Mat aBw;
-	pyrUp(m->bw,m->bw);
+        Mat aBw(m->src.size(), m->bw.type(), Scalar(0));
+	aBw.adjustROI(-m->src.rows + ROI_SIZE, 0, 0, -m->src.cols + ROI_SIZE);
 	m->bw.copyTo(aBw);
+	aBw.adjustROI(m->src.rows - ROI_SIZE, 0, 0, m->src.cols - ROI_SIZE);
+       
+	// pyrUp(m->bw,m->bw);
+	// m->bw.copyTo(aBw);
 	findContours(aBw,hg->contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
-	hg->initVectors(); 
+	hg->initVectors();
 	hg->cIdx=findBiggestContour(hg->contours);
 	if(hg->cIdx!=-1){
-//		approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
-		hg->bRect=boundingRect(Mat(hg->contours[hg->cIdx]));		
+		// approxPolyDP( Mat(hg->contours[hg->cIdx]), hg->contours[hg->cIdx], 11, true );
+	    drawContours(aBw, hg->contours, hg->cIdx, Scalar(255), CV_FILLED);
+		hg->bRect=boundingRect(Mat(hg->contours[hg->cIdx]));
 		convexHull(Mat(hg->contours[hg->cIdx]),hg->hullP[hg->cIdx],false,true);
 		convexHull(Mat(hg->contours[hg->cIdx]),hg->hullI[hg->cIdx],false,false);
 		approxPolyDP( Mat(hg->hullP[hg->cIdx]), hg->hullP[hg->cIdx], 18, true );
 		if(hg->contours[hg->cIdx].size()>3 ){
+		    // cout << "Convexity defects called" << endl;
 			convexityDefects(hg->contours[hg->cIdx],hg->hullI[hg->cIdx],hg->defects[hg->cIdx]);
 			hg->eleminateDefects(m);
 		}
 		bool isHand=hg->detectIfHand();
 		hg->printGestureInfo(m->src);
-		if(isHand){	
+		if(isHand){
 			hg->getFingerTips(m);
 			hg->drawFingerTips(m);
 			myDrawContours(m,hg);
 		}
 	}
+	imshow("blackwhite", aBw);
 }
 
+void filterGarbage(Mat& imgBinary) {
+  const int IMG_BINARIES_SIZE = 2;
+  const int MINIMAL_HAND_POINTS = 500;
 
-int main(){
-	MyImage m(0);		
+  static std::deque<cv::Mat> imgBinaries;
+
+  // filter little garbage from the bitmap
+  cv::erode(imgBinary, imgBinary, cv::Mat());
+  cv::dilate(imgBinary, imgBinary, cv::Mat());
+
+  // filter garbage that is far from the bitmap center
+  cv::Mat points;
+  cv::findNonZero(imgBinary, points);
+
+  cv::Vec2d mean;
+  cv::Vec2d stdDev;
+  cv::meanStdDev(points, mean, stdDev);
+
+  std::for_each(points.begin<cv::Point2i>(), points.end<cv::Point2i>(), [mean, stdDev, &imgBinary](cv::Point2i v) {
+  	  unsigned char& p = imgBinary.at<unsigned char>(v.y, v.x);
+  	  if (p != 0)
+  	      p = fabs(mean[0] - v.x) < stdDev[0] * 2.0 && fabs(mean[1] - v.y) < stdDev[1] * 2.0 ? 255 : 0;
+    });
+
+  // is the amount of points in mask is enough to detect cola?
+  if (points.total() >= MINIMAL_HAND_POINTS) {
+    // bitmask element is true only if it was true during the last few iterations
+    cv::Mat imgBinarySource = imgBinary.clone();
+    for(std::deque<cv::Mat>::iterator it = imgBinaries.begin(); it != imgBinaries.end(); ++it) {
+      cv::bitwise_and(imgBinary, *it, imgBinary);
+    }
+    imgBinaries.push_back(imgBinarySource);
+    if (imgBinaries.size() > IMG_BINARIES_SIZE)
+      imgBinaries.pop_front();
+  }
+}
+
+Mat backprojBinarization(Mat src, Rect roi, int bins) {
+    Mat srcRoi = src(roi);
+    Mat hsv;
+    cvtColor( srcRoi, hsv, CV_BGR2HSV );
+    Mat hue;
+    hue.create( hsv.size(), hsv.depth() );
+    int ch[] = { 0, 0 };
+    mixChannels( &hsv, 1, &hue, 1, ch, 1 );
+
+    Mat hist;
+    float hue_range[] = { -180, 180 };
+    const float* ranges = { hue_range };
+    calcHist( &hue, 1, 0, Mat(), hist, 1, &bins, &ranges, true, false );
+    normalize( hist, hist, 0, 255, NORM_MINMAX, -1, Mat() );
+
+    Mat backproj;
+    calcBackProject( &hue, 1, 0, hist, backproj, &ranges, 1, true );
+    threshold(backproj, backproj, 200, 255, THRESH_BINARY);
+
+    return backproj;
+}
+
+int main(int argc, char** argv){
+    try {
+	// backprojection histogram bins count
+	const int BINS = 50;
+	// MyImage m(0);
+	MyImage m(argv[1]);		
 	HandGesture hg;
-	init(&m);		
-	m.cap >>m.src;
-    namedWindow("img1",CV_WINDOW_KEEPRATIO);
-	out.open("out.avi", CV_FOURCC('M', 'J', 'P', 'G'), 15, m.src.size(), true);
-	waitForPalmCover(&m);
-	average(&m);
-	destroyWindow("img1");
+	init(&m);
 	initWindows(m);
-	initTrackbars();
 	for(;;){
 		hg.frameNumber++;
 		m.cap >> m.src;
 		flip(m.src,m.src,1);
-		pyrDown(m.src,m.srcLR);
-		blur(m.srcLR,m.srcLR,Size(3,3));
-		cvtColor(m.srcLR,m.srcLR,ORIGCOL2COL);
-		produceBinaries(&m);
-		cvtColor(m.srcLR,m.srcLR,COL2ORIGCOL);
+
+		Rect roi = Rect(0, m.src.size().height - ROI_SIZE, ROI_SIZE, ROI_SIZE);
+		m.bw = backprojBinarization(m.src, roi, BINS);
+		filterGarbage(m.bw);
+		rectangle(m.src, roi, Scalar(0, 255, 0), 2);
+
 		makeContours(&m, &hg);
 		hg.getFingerNumber(&m);
 		showWindows(m);
-		out << m.src;
-		//imwrite("./images/final_result.jpg",m.src);
-    	if(cv::waitKey(30) == char('q')) break;
+		if(cv::waitKey(30) == char('q')) break;
 	}
 	destroyAllWindows();
 	out.release();
 	m.cap.release();
+    } catch(Exception& e) {
+	cout << "Exception: " << e.what() << endl;
+    }
+    cout << endl;
     return 0;
 }

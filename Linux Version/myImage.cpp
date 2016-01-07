@@ -17,3 +17,7 @@ MyImage::MyImage(int webCamera){
 	cap=VideoCapture(webCamera);
 }
 
+MyImage::MyImage(const string& filename){
+	cameraSrc = -1;
+	cap=VideoCapture(filename);
+}
