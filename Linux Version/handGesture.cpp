@@ -72,15 +72,12 @@ bool HandGesture::detectIfHand(){
 		isHand=false;
 	}else if(h/w > 4 || w/h >4){
 		isHand=false;	
-	}else if(bRect.x<20){
-		isHand=false;	
 	}	
 	return isHand;
 }
 
 float HandGesture::distanceP2P(Point a, Point b){
-	float d= sqrt(fabs( pow(a.x-b.x,2) + pow(a.y-b.y,2) )) ;  
-	return d;
+	return sqrt(fabs( pow(a.x-b.x,2) + pow(a.y-b.y,2) )) ;  
 }
 
 // remove fingertips that are too close to 
@@ -203,10 +200,8 @@ void HandGesture::eleminateDefects(MyImage *m){
 
 // remove endpoint of convexity defects if they are at the same fingertip
 void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects,MyImage *m){
-	Vec4i temp;
-	float avgX, avgY;
 	float tolerance=bRect_width/6;
-	int startidx, endidx, faridx;
+	int startidx, endidx;
 	int startidx2, endidx2;
 	for(int i=0;i<newDefects.size();i++){
 		for(int j=i;j<newDefects.size();j++){
@@ -228,7 +223,9 @@ void HandGesture::removeRedundantEndPoints(vector<Vec4i> newDefects,MyImage *m){
 // so another method has to check when there are no
 // convexity defects
 void HandGesture::checkForOneFinger(MyImage *m){
+	const int EPS = 20;
 	int yTol=bRect.height/6;
+	int xTol=bRect.width/5;
 	Point highestP;
 	highestP.y=m->src.rows;
 	vector<Point>::iterator d=contours[cIdx].begin();
@@ -236,31 +233,78 @@ void HandGesture::checkForOneFinger(MyImage *m){
    	    Point v=(*d);
 		if(v.y<highestP.y){
 			highestP=v;
-			cout<<highestP.y<<endl;
 		}
-		d++;	
+		d++;
 	}int n=0;
 	d=hullP[cIdx].begin();
 	while( d!=hullP[cIdx].end() ) {
    	    Point v=(*d);
-			cout<<"x " << v.x << " y "<<  v.y << " highestpY " << highestP.y<< "ytol "<<yTol<<endl;
-		if(v.y<highestP.y+yTol && v.y!=highestP.y && v.x!=highestP.x){
+	    if(v.y<highestP.y+yTol && abs(v.y-highestP.y) > yTol / 3 && abs(v.x-highestP.x) > xTol){
 			n++;
 		}
 		d++;	
-	}if(n==0){
+ 	}
+	if(n==0){
 		fingerTips.push_back(highestP);
+	}
+	d=hullP[cIdx].begin();
+	while (d!=hullP[cIdx].end()) {
+		Point v=(*d);
+		if(v.y<highestP.y+yTol && abs(v.y-highestP.y) > yTol / 3 && abs(v.x-highestP.x) > xTol)
+			cout << "Not one finger" << endl;
+			cout << "v = " << v << " p = " << highestP << " p+tol = " << highestP.y + yTol << endl;
+		d++;
 	}
 }
 
 void HandGesture::drawFingerTips(MyImage *m){
 	Point p;
-	int k=0;
+	int tolerance = bRect.height / 6;
+	const float angleTol = 150.f;
 	for(int i=0;i<fingerTips.size();i++){
 		p=fingerTips[i];
 		putText(m->src,intToString(i),p-Point(0,30),fontFace, 1.2f,Scalar(200,200,200),2);
    		circle( m->src,p,   5, Scalar(100,255,100), 4 );
    	 }
+	if (fingerTips.size() == 1) {
+		vector<Point>::iterator it = find(contours[cIdx].begin(), contours[cIdx].end(), fingerTips[0]);
+
+		Point p3;
+		vector<Point>::iterator itFwd = it;
+		do {
+			float distance = distanceP2P(*it, *itFwd);
+			float angle = getAngle(*(itFwd - 1), *itFwd, *(itFwd + 1));
+			if (distance > tolerance){ // && angle < angleTol) {
+				p3 = *itFwd;
+				break;
+			}
+			if (itFwd == contours[cIdx].end()){
+				itFwd = contours[cIdx].begin();
+			}
+			++itFwd;
+		}
+		while(itFwd != it);
+
+		Point p1;
+		vector<Point>::iterator itBack = it;
+		do {
+			if (distanceP2P(*it, *itBack) > tolerance){ // && getAngle(*(itBack - 1), *itBack, *(itBack + 1)) < angleTol) {
+				p1 = *itBack;
+				break;
+			}
+			if (itBack == contours[cIdx].begin()){
+				itBack = contours[cIdx].end();
+			}
+			--itBack;
+		}
+		while(itBack != it);
+
+		// int faridx = biggestEliminatedDefect[2];
+   		circle(m->src, p1, 5, Scalar(0,0,205), 4);
+   		circle(m->src, p3, 5, Scalar(0,0,205), 4);
+   		circle(m->src, (p3 + p1) * 0.5, 5, Scalar(0,0,205), 4);
+
+	}
 }
 
 void HandGesture::getFingerTips(MyImage *m){

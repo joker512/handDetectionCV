@@ -58,29 +58,25 @@ void printText(Mat src, string text){
 }
 
 void waitForPalmCover(MyImage* m){
-    m->cap >> m->src;
-	flip(m->src,m->src,1);
-	roi.push_back(My_ROI(Point(m->src.cols/3, m->src.rows/6),Point(m->src.cols/3+square_len,m->src.rows/6+square_len),m->src));
-	roi.push_back(My_ROI(Point(m->src.cols/4, m->src.rows/2),Point(m->src.cols/4+square_len,m->src.rows/2+square_len),m->src));
-	roi.push_back(My_ROI(Point(m->src.cols/3, m->src.rows/1.5),Point(m->src.cols/3+square_len,m->src.rows/1.5+square_len),m->src));
-	roi.push_back(My_ROI(Point(m->src.cols/2, m->src.rows/2),Point(m->src.cols/2+square_len,m->src.rows/2+square_len),m->src));
-	roi.push_back(My_ROI(Point(m->src.cols/2.5, m->src.rows/2.5),Point(m->src.cols/2.5+square_len,m->src.rows/2.5+square_len),m->src));
-	roi.push_back(My_ROI(Point(m->src.cols/2, m->src.rows/1.5),Point(m->src.cols/2+square_len,m->src.rows/1.5+square_len),m->src));
-	roi.push_back(My_ROI(Point(m->src.cols/2.5, m->src.rows/1.8),Point(m->src.cols/2.5+square_len,m->src.rows/1.8+square_len),m->src));
-	
+    m->read();
+    int width = m->roiSize.width;
+    int height = m->roiSize.height;
+    roi.push_back(My_ROI(Point(width/3, height/2),Point(width/3+square_len,height/2+square_len),m->src));
+    roi.push_back(My_ROI(Point(width/4, height/2),Point(width/4+square_len,height/2+square_len),m->src));
+    roi.push_back(My_ROI(Point(width/3, height/1.5),Point(width/3+square_len,height/1.5+square_len),m->src));
+    roi.push_back(My_ROI(Point(width/2, height/2),Point(width/2+square_len,height/2+square_len),m->src));
+    roi.push_back(My_ROI(Point(width/2.5, height/1.2),Point(width/2.5+square_len,height/1.2+square_len),m->src));
+    roi.push_back(My_ROI(Point(width/2, height/1.5),Point(width/2+square_len,height/1.5+square_len),m->src));
+    roi.push_back(My_ROI(Point(width/2.5, height/1.8),Point(width/2.5+square_len,height/1.8+square_len),m->src));
+    
 	
 	for(int i =0;i<50;i++){
-    	m->cap >> m->src;
-		flip(m->src,m->src,1);
+    	m->read();
 		for(int j=0;j<NSAMPLES;j++){
 			roi[j].draw_rectangle(m->src);
 		}
 		string imgText=string("Cover rectangles with palm");
 		printText(m->src,imgText);	
-		
-		if(i==30){
-		//	imwrite("./images/waitforpalm1.jpg",m->src);
-		}
 
 		imshow("img1", m->src);
 		out << m->src;
@@ -121,11 +117,9 @@ void getAvgColor(MyImage *m,My_ROI roi,int avg[3]){
 }
 
 void average(MyImage *m){
-	m->cap >> m->src;
-	flip(m->src,m->src,1);
+	m->read();
 	for(int i=0;i<30;i++){
-		m->cap >> m->src;
-		flip(m->src,m->src,1);
+		m->read();
 		cvtColor(m->src,m->src,ORIGCOL2COL);
 		for(int j=0;j<NSAMPLES;j++){
 			getAvgColor(m,roi[j],avgColor[j]);
@@ -188,7 +182,6 @@ void normalizeColors(MyImage * myImage){
 void produceBinaries(MyImage *m){	
 	Scalar lowerBound;
 	Scalar upperBound;
-	Mat foo;
 	for(int i=0;i<NSAMPLES;i++){
 		normalizeColors(m);
 		lowerBound=Scalar( avgColor[i][0] - c_lower[i][0] , avgColor[i][1] - c_lower[i][1], avgColor[i][2] - c_lower[i][2] );
@@ -203,22 +196,23 @@ void produceBinaries(MyImage *m){
 	medianBlur(m->bw, m->bw,7);
 }
 
-void initWindows(MyImage m){
+void initWindows(){
     namedWindow("trackbars",CV_WINDOW_KEEPRATIO);
-    namedWindow("img1",CV_WINDOW_FULLSCREEN);
+    namedWindow("img1",CV_WINDOW_AUTOSIZE);
 }
 
-void showWindows(MyImage m){
-	pyrDown(m.bw,m.bw);
-	pyrDown(m.bw,m.bw);
-	Rect roi( Point( 3*m.src.cols/4,0 ), m.bw.size());
+void showWindows(MyImage* m){
+	pyrDown(m->bw,m->bw);
+	pyrDown(m->bw,m->bw);
+	Rect roi( Point( 3*m->src.cols/4,0 ), m->bw.size());
 	vector<Mat> channels;
 	Mat result;
 	for(int i=0;i<3;i++)
-		channels.push_back(m.bw);
+		channels.push_back(m->bw);
 	merge(channels,result);
-	result.copyTo( m.src(roi));
-	imshow("img1",m.src);	
+	result.copyTo( m->src(roi));
+	// pyrDown(m->src, m->src);
+	imshow("img1",m->src);	
 }
 
 int findBiggestContour(vector<vector<Point> > contours){
@@ -235,23 +229,16 @@ int findBiggestContour(vector<vector<Point> > contours){
 
 void myDrawContours(MyImage *m,HandGesture *hg){
 	drawContours(m->src,hg->hullP,hg->cIdx,cv::Scalar(200,0,0),2, 8, vector<Vec4i>(), 0, Point());
-
-
-
-
 	rectangle(m->src,hg->bRect.tl(),hg->bRect.br(),Scalar(0,0,200));
 	vector<Vec4i>::iterator d=hg->defects[hg->cIdx].begin();
 	int fontFace = FONT_HERSHEY_PLAIN;
-		
 	
 	vector<Mat> channels;
 		Mat result;
 		for(int i=0;i<3;i++)
 			channels.push_back(m->bw);
 		merge(channels,result);
-	//	drawContours(result,hg->contours,hg->cIdx,cv::Scalar(0,200,0),6, 8, vector<Vec4i>(), 0, Point());
 		drawContours(result,hg->hullP,hg->cIdx,cv::Scalar(0,0,250),10, 8, vector<Vec4i>(), 0, Point());
-
 		
 	while( d!=hg->defects[hg->cIdx].end() ) {
    	    Vec4i& v=(*d);
@@ -267,11 +254,8 @@ void myDrawContours(MyImage *m,HandGesture *hg){
    		circle( m->src, ptStart,   4, Scalar(255,0,0), 2 );
 */
    		circle( result, ptFar,   9, Scalar(0,205,0), 5 );
-		
-		
-	    d++;
-
-   	 }
+		d++;
+	}
 //	imwrite("./images/contour_defects_before_eliminate.jpg",result);
 
 }
@@ -303,37 +287,56 @@ void makeContours(MyImage *m, HandGesture* hg){
 	}
 }
 
+void filterGarbage(Mat& imgBinary) {
+  const int IMG_BINARIES_SIZE = 1;
 
-int main(){
-	MyImage m(0);		
+  static std::deque<cv::Mat> imgBinaries;
+
+  // filter little garbage from the bitmap
+  cv::erode(imgBinary, imgBinary, cv::Mat());
+  cv::dilate(imgBinary, imgBinary, cv::Mat());
+
+  // bitmask element is true only if it was true during the last few iterations
+  cv::Mat imgBinarySource = imgBinary.clone();
+  for(std::deque<cv::Mat>::iterator it = imgBinaries.begin(); it != imgBinaries.end(); ++it) {
+	  cv::bitwise_and(imgBinary, *it, imgBinary);
+  }
+  imgBinaries.push_back(imgBinarySource);
+  if (imgBinaries.size() > IMG_BINARIES_SIZE)
+	  imgBinaries.pop_front();
+}
+
+int main(int argc, char** argv){
+	MyImage* m = argc == 2 ? new MyImage(argv[1]) : new MyImage(0);		
 	HandGesture hg;
-	init(&m);		
-	m.cap >>m.src;
-    namedWindow("img1",CV_WINDOW_KEEPRATIO);
-	out.open("out.avi", CV_FOURCC('M', 'J', 'P', 'G'), 15, m.src.size(), true);
-	waitForPalmCover(&m);
-	average(&m);
+	init(m);
+	m->read();
+	namedWindow("img1",CV_WINDOW_AUTOSIZE);
+	// out.open("out.avi", CV_FOURCC('M', 'J', 'P', 'G'), 15, m->src.size(), true);
+	waitForPalmCover(m);
+	average(m);
 	destroyWindow("img1");
-	initWindows(m);
+	initWindows();
 	initTrackbars();
 	for(;;){
 		hg.frameNumber++;
-		m.cap >> m.src;
-		flip(m.src,m.src,1);
-		pyrDown(m.src,m.srcLR);
-		blur(m.srcLR,m.srcLR,Size(3,3));
-		cvtColor(m.srcLR,m.srcLR,ORIGCOL2COL);
-		produceBinaries(&m);
-		cvtColor(m.srcLR,m.srcLR,COL2ORIGCOL);
-		makeContours(&m, &hg);
-		hg.getFingerNumber(&m);
+		m->read();
+		
+		pyrDown(m->src,m->srcLR);
+		blur(m->srcLR,m->srcLR,Size(3,3));
+		cvtColor(m->srcLR,m->srcLR,ORIGCOL2COL);
+		produceBinaries(m);
+		cvtColor(m->srcLR,m->srcLR,COL2ORIGCOL);
+		// filterGarbage(m->bw);
+		makeContours(m, &hg);
+		hg.getFingerNumber(m);
 		showWindows(m);
-		out << m.src;
-		//imwrite("./images/final_result.jpg",m.src);
+		// out << m->src;
+		//imwrite("./images/final_result.jpg",m->src);
     	if(cv::waitKey(30) == char('q')) break;
 	}
 	destroyAllWindows();
 	out.release();
-	m.cap.release();
+	delete m;
     return 0;
 }
