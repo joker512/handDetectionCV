@@ -1,0 +1,19 @@
+// #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/opencv.hpp>
+#include <fstream>
+
+using namespace cv;
+using namespace std;
+
+class ImageReader{
+public:
+  ImageReader(int webCamera);
+  ImageReader(const string& filename);
+  void read(Mat& src);
+
+  Size roiSize;
+
+private:
+  VideoCapture cap;		
+  bool isCamera;
+};

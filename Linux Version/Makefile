@@ -1,8 +1,4 @@
-
-
-#PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}
-#export PKG_CONFIG_PATH
-
 all:
-	g++ -g -std=c++11 -o opencv main.cpp myImage.cpp handGesture.cpp roi.cpp  `pkg-config --cflags --libs opencv` 
+# TODO: libraries instead of pkg-config and optional debugging option
+	g++ -g -std=c++11 -o opencv main.cpp ShootingChecker.cpp ImageReader.cpp `pkg-config --cflags --libs opencv` 
 
