@@ -13,9 +13,10 @@ using namespace std;
 
 class ShootingChecker{
 public:
+	ShootingChecker();
 	ShootingChecker(const Size& imageSize);
 	ShootingChecker(const vector<Point>& colorRoisPoints, const int colorRoisSize = DEFAULT_ROIS_SIZE);
-	void learnColor(Mat& image);
+	void learnColor(const Mat& image);
 	Scalar getShootingDirection(const Mat& image);
 	Scalar getShootingDirection(const Mat& image, Mat& binaryImage);
 
@@ -28,6 +29,7 @@ private:
 	static int cUpper[3];
 	vector<Vec3i> averageColors;
 
+	void initColorRois(const Size& imageSize);
 	Mat getBinary(const Mat& image);
 	int getMedian(vector<int> v);
 	void filterGarbage(Mat& imgBinary);

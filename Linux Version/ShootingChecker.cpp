@@ -6,8 +6,20 @@ using namespace std;
 int ShootingChecker::cLower[] = {12, 30, 80};
 int ShootingChecker::cUpper[] = {7, 40, 80};
 
+ShootingChecker::ShootingChecker() {
+}
+
 ShootingChecker::ShootingChecker(const Size& imageSize) {
-	vector<Point> rois = colorRoisPoints;
+	initColorRois(imageSize);
+}
+
+ShootingChecker::ShootingChecker(const vector<Point>& colorRoisPoints, const int colorRoisSize) {
+	this->colorRoisPoints = colorRoisPoints;
+	this->colorRoisSize = colorRoisSize;
+}
+
+void ShootingChecker::initColorRois(const Size& imageSize) {
+  	vector<Point> rois = colorRoisPoints;
 	int width = imageSize.width;
 	int height = imageSize.height;
 
@@ -23,18 +35,17 @@ ShootingChecker::ShootingChecker(const Size& imageSize) {
 	colorRoisSize = DEFAULT_ROIS_SIZE;
 }
 
-ShootingChecker::ShootingChecker(const vector<Point>& colorRoisPoints, const int colorRoisSize) {
-	this->colorRoisPoints = colorRoisPoints;
-	this->colorRoisSize = colorRoisSize;
-}
-
-void ShootingChecker::learnColor(Mat& image) {
+void ShootingChecker::learnColor(const Mat& image) {
+	if (colorRoisPoints.empty()) {
+		initColorRois(image.size());
+	}
 	averageColors.clear();
 
-	cvtColor(image, image, CV_BGR2HLS);
+	Mat hlsImage;
+	cvtColor(image, hlsImage, CV_BGR2HLS);
 	for(Point roiPoint : colorRoisPoints) {
 		Mat roi;
-		image(Rect(roiPoint, Size(colorRoisSize, colorRoisSize))).copyTo(roi);
+		hlsImage(Rect(roiPoint, Size(colorRoisSize, colorRoisSize))).copyTo(roi);
 		vector<int> h, s, l;
 
 		int channels = roi.channels();
@@ -46,7 +57,7 @@ void ShootingChecker::learnColor(Mat& image) {
 			}
 		}
 		averageColors.push_back(Point3i(getMedian(h), getMedian(s), getMedian(l)));
-	}	
+	}
 }
 
 int ShootingChecker::getMedian(vector<int> v){
