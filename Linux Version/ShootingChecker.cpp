@@ -36,7 +36,7 @@ void ShootingChecker::initColorRois(const Size& imageSize) {
 
 vector<Rect> ShootingChecker::getColorRoisRects() const {
 	vector<Rect> rois;
-	for (Point p : colorRoisPoints) {
+	for (auto p : colorRoisPoints) {
 		rois.push_back(Rect(p, Size(colorRoisSize, colorRoisSize)));
 	}
 	return rois;
@@ -50,7 +50,7 @@ void ShootingChecker::learnColor(const Mat& image) {
 
 	Mat hlsImage;
 	cvtColor(image, hlsImage, CV_BGR2HLS);
-	for(Rect roiRect : getColorRoisRects()) {
+	for(auto roiRect : getColorRoisRects()) {
 		Mat roi;
 		hlsImage(roiRect).copyTo(roi);
 		vector<int> h, s, l;
@@ -83,7 +83,7 @@ Scalar ShootingChecker::getShootingDirection(const Mat& image, Mat& binaryImage)
 
 	vector<Point> biggestContour;
 	int sizeOfBiggestContour = 0;
-	for (vector<Point> contour : contours) {
+	for (auto contour : contours) {
 		if (contour.size() > sizeOfBiggestContour) {
 			sizeOfBiggestContour = contour.size();
 			biggestContour = contour;
@@ -123,7 +123,7 @@ Mat ShootingChecker::getBinary(const Mat& image) const {
 	cvtColor(lowResImage, lowResImage, CV_BGR2HLS);
 
 	Mat binaryImage(lowResImage.size(), CV_8U, Scalar());
-	for(Vec3i avgColor : averageColors){
+	for(auto avgColor : averageColors){
 		// normalize colors
 		for(int i = 0; i < 3; ++i) {
 			if(avgColor[i] - C_LOWER[i] < 0)
@@ -150,17 +150,16 @@ Mat ShootingChecker::getBinary(const Mat& image) const {
 
 void ShootingChecker::filterGarbage(Mat& imgBinary) const {
 	const int IMG_BINARIES_SIZE = 1;
-
-	static std::deque<cv::Mat> imgBinaries;
+	static deque<Mat> imgBinaries;
 
 	// filter little garbage from the bitmap
-	cv::erode(imgBinary, imgBinary, cv::Mat());
-	cv::dilate(imgBinary, imgBinary, cv::Mat());
+	erode(imgBinary, imgBinary, Mat());
+	dilate(imgBinary, imgBinary, Mat());
 
 	// bitmask element is true only if it was true during the last few iterations
-	cv::Mat imgBinarySource = imgBinary.clone();
-	for(std::deque<cv::Mat>::iterator it = imgBinaries.begin(); it != imgBinaries.end(); ++it) {
-		cv::bitwise_and(imgBinary, *it, imgBinary);
+	Mat imgBinarySource = imgBinary.clone();
+	for(auto it = imgBinaries.begin(); it != imgBinaries.end(); ++it) {
+		bitwise_and(imgBinary, *it, imgBinary);
 	}
 	imgBinaries.push_back(imgBinarySource);
 	if (imgBinaries.size() > IMG_BINARIES_SIZE)
@@ -172,7 +171,7 @@ void ShootingChecker::eleminateDefects(vector<Vec4i>& defects, const vector<Poin
 
 	vector<Vec4i> newDefects;
 	int startidx, endidx, faridx;
-	for (Vec4i defect : defects) {
+	for (auto defect : defects) {
 		Point ptStart(contour[defect[0]]);
 		Point ptEnd(contour[defect[1]]);
 		Point ptFar(contour[defect[2]]);
