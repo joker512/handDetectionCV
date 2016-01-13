@@ -1,9 +1,4 @@
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
-#include <iostream>
-#include <string>
-#include <vector>
 #include "ShootingChecker.hpp"
 #include "ImageReader.hpp"
 
@@ -76,11 +71,9 @@ int main(int argc, char** argv){
 		namedWindow("Learn Color", CV_WINDOW_AUTOSIZE);
 
 		Mat learnColorImage;
-		int roiSize = shootingChecker.colorRoisSize;
 		while(true) {
 			reader->read(learnColorImage);
-			for(Point roiPoint : shootingChecker.colorRoisPoints) {
-				Rect roi(roiPoint, Size(roiSize, roiSize));
+			for(Rect roi : shootingChecker.getColorRoisRects()) {
 				rectangle(learnColorImage, roi, Scalar(0, 255, 0), 2);
 			}
 

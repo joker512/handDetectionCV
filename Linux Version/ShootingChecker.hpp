@@ -1,10 +1,4 @@
-// #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/opencv.hpp>
-#include <vector>
-#include <iostream>
-#include <string>
-#include <math.h>
 
 #define DEFAULT_ROIS_SIZE 20
 
@@ -16,14 +10,15 @@ public:
 	ShootingChecker();
 	ShootingChecker(const Size& imageSize);
 	ShootingChecker(const vector<Point>& colorRoisPoints, const int colorRoisSize = DEFAULT_ROIS_SIZE);
+	vector<Rect> getColorRoisRects();
 	void learnColor(const Mat& image);
 	Scalar getShootingDirection(const Mat& image);
 	Scalar getShootingDirection(const Mat& image, Mat& binaryImage);
 
 	vector<Point> colorRoisPoints;
-	int colorRoisSize;
+	int colorRoisSize = DEFAULT_ROIS_SIZE;
 	bool filterMuar = false;
-	
+
 private:
 	static int cLower[3];
 	static int cUpper[3];

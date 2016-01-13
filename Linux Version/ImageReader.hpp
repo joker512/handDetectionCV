@@ -1,4 +1,3 @@
-// #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <fstream>
 
@@ -7,13 +6,13 @@ using namespace std;
 
 class ImageReader{
 public:
-  ImageReader(int webCamera);
-  ImageReader(const string& filename);
-  void read(Mat& src);
+	ImageReader(int webCamera);
+	ImageReader(const string& filename);
+	void read(Mat& src);
 
-  Size roiSize;
+	Size roiSize;
 
 private:
-  VideoCapture cap;		
-  bool isCamera;
+	VideoCapture cap;		
+	bool isCamera;
 };

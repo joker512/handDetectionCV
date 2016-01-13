@@ -32,7 +32,14 @@ void ShootingChecker::initColorRois(const Size& imageSize) {
 	rois.push_back(Point(width / 2.5, height / 1.8));
 
 	colorRoisPoints.swap(rois);
-	colorRoisSize = DEFAULT_ROIS_SIZE;
+}
+
+vector<Rect> ShootingChecker::getColorRoisRects() {
+	vector<Rect> rois;
+	for (Point p : colorRoisPoints) {
+		rois.push_back(Rect(p, Size(colorRoisSize, colorRoisSize)));
+	}
+	return rois;
 }
 
 void ShootingChecker::learnColor(const Mat& image) {
@@ -43,9 +50,9 @@ void ShootingChecker::learnColor(const Mat& image) {
 
 	Mat hlsImage;
 	cvtColor(image, hlsImage, CV_BGR2HLS);
-	for(Point roiPoint : colorRoisPoints) {
+	for(Rect roiRect : getColorRoisRects()) {
 		Mat roi;
-		hlsImage(Rect(roiPoint, Size(colorRoisSize, colorRoisSize))).copyTo(roi);
+		hlsImage(roiRect).copyTo(roi);
 		vector<int> h, s, l;
 
 		int channels = roi.channels();
@@ -223,7 +230,7 @@ Point ShootingChecker::getFingerTip(vector<Point> contour, const vector<Point> h
         bool isShootingHand = none_of(hullPoints.begin(), hullPoints.end(), [highestP, yTol, xTol](Point v) {
 			bool b = v.y < highestP.y + yTol && abs(v.y - highestP.y) > yTol / 3 && abs(v.x - highestP.x) > xTol;
 #if DEVEL == 1
-			if (!b) {
+			if (b) {
 				cerr << "Bad:" << endl;
 				cerr << "v = " << v << " p = " << highestP << " p+tol = " << highestP.y + yTol << endl;
 			}
@@ -241,14 +248,7 @@ Point ShootingChecker::getDirectionPoint(const Point& fingerTip, vector<Point> c
 	int tolerance = bRect.height / 6;
 	const float angleTol = 150.f;
 
-	// Point p;
-	// for(int i = 0;i<fingerTips.size();i++){
-	// 	p = fingerTips[i];
-	// 	putText(m->src,intToString(i),p-Point(0,30),fontFace, 1.2f,Scalar(200,200,200),2);
-   	// 	circle( m->src,p,   5, Scalar(100,255,100), 4 );
-   	//  }
 	vector<Point>::iterator it = find(contour.begin(), contour.end(), fingerTip);
-
 	Point p1;
 	vector<Point>::iterator itFwd = it;
 	do {
@@ -280,7 +280,6 @@ Point ShootingChecker::getDirectionPoint(const Point& fingerTip, vector<Point> c
 	while(itBack != it);
 
 	return (p1 + p2) * 0.5f;
-	// circle(m->src, (p3 + p1) * 0.5, 5, Scalar(0,0,205), 4);
 }
 
 float ShootingChecker::getAngle(const Point& s, const Point& f, const Point& e){
