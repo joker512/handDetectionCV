@@ -3,8 +3,8 @@
 using namespace cv;
 using namespace std;
 
-int ShootingChecker::cLower[] = {12, 30, 80};
-int ShootingChecker::cUpper[] = {7, 40, 80};
+int ShootingChecker::C_LOWER[] = {12, 30, 80};
+int ShootingChecker::C_UPPER[] = {7, 40, 80};
 
 ShootingChecker::ShootingChecker() {
 }
@@ -23,18 +23,18 @@ void ShootingChecker::initColorRois(const Size& imageSize) {
 	int width = imageSize.width;
 	int height = imageSize.height;
 
-	rois.push_back(Point(width / 3, height / 2));
-	rois.push_back(Point(width / 4, height / 2));
-	rois.push_back(Point(width / 3, height / 1.5));
-	rois.push_back(Point(width / 2, height / 2));
-	rois.push_back(Point(width / 2.5, height / 1.2));
-	rois.push_back(Point(width / 2, height / 1.5));
-	rois.push_back(Point(width / 2.5, height / 1.8));
+	rois.push_back(Point(width / 3, height / 1.75));
+	rois.push_back(Point(width / 7, height / 1.75));
+	rois.push_back(Point(width / 2.5, height / 1.35));
+	rois.push_back(Point(width / 4, height / 1.35));
+	rois.push_back(Point(width / 8, height / 1.35));
+	rois.push_back(Point(width / 3, height / 1.1));
+	rois.push_back(Point(width / 7, height / 1.1));
 
 	colorRoisPoints.swap(rois);
 }
 
-vector<Rect> ShootingChecker::getColorRoisRects() {
+vector<Rect> ShootingChecker::getColorRoisRects() const {
 	vector<Rect> rois;
 	for (Point p : colorRoisPoints) {
 		rois.push_back(Rect(p, Size(colorRoisSize, colorRoisSize)));
@@ -67,17 +67,12 @@ void ShootingChecker::learnColor(const Mat& image) {
 	}
 }
 
-int ShootingChecker::getMedian(vector<int> v){
-	sort(v.begin(), v.end());
-	return v.size() % 2 == 0 ? v[v.size() / 2 - 1] : v[v.size() / 2];
-}
-
-Scalar ShootingChecker::getShootingDirection(const Mat& image) {
+Scalar ShootingChecker::getShootingDirection(const Mat& image) const {
 	Mat binaryImage;
 	return getShootingDirection(image, binaryImage);
 }
 
-Scalar ShootingChecker::getShootingDirection(const Mat& image, Mat& binaryImage) {
+Scalar ShootingChecker::getShootingDirection(const Mat& image, Mat& binaryImage) const {
 	const int MIN_HAND_DISPROPORTION = 4;
 	binaryImage = getBinary(image);
 
@@ -121,7 +116,7 @@ Scalar ShootingChecker::getShootingDirection(const Mat& image, Mat& binaryImage)
 	return Scalar();
 }
 
-Mat ShootingChecker::getBinary(const Mat& image) {
+Mat ShootingChecker::getBinary(const Mat& image) const {
 	Mat lowResImage;
 	pyrDown(image, lowResImage);
 	blur(lowResImage, lowResImage, Size(3, 3));
@@ -131,14 +126,14 @@ Mat ShootingChecker::getBinary(const Mat& image) {
 	for(Vec3i avgColor : averageColors){
 		// normalize colors
 		for(int i = 0; i < 3; ++i) {
-			if(avgColor[i] - cLower[i] < 0)
-				cLower[i] = avgColor[i];
-			if(avgColor[i] + cUpper[i] > 255)
-				cUpper[i] = 255 - avgColor[i];
+			if(avgColor[i] - C_LOWER[i] < 0)
+				C_LOWER[i] = avgColor[i];
+			if(avgColor[i] + C_UPPER[i] > 255)
+				C_UPPER[i] = 255 - avgColor[i];
 		}
 
-		Scalar lowerBound = Scalar(avgColor[0] - cLower[0], avgColor[1] - cLower[1], avgColor[2] - cLower[2]);
-		Scalar upperBound = Scalar(avgColor[0] + cUpper[0], avgColor[1] + cUpper[1], avgColor[2] + cUpper[2]);
+		Scalar lowerBound = Scalar(avgColor[0] - C_LOWER[0], avgColor[1] - C_LOWER[1], avgColor[2] - C_LOWER[2]);
+		Scalar upperBound = Scalar(avgColor[0] + C_UPPER[0], avgColor[1] + C_UPPER[1], avgColor[2] + C_UPPER[2]);
 		Mat foo(lowResImage.size(), CV_8U);
 		inRange(lowResImage, lowerBound, upperBound, foo);
 		binaryImage += foo;
@@ -153,7 +148,7 @@ Mat ShootingChecker::getBinary(const Mat& image) {
 	return binaryImage;
 }
 
-void ShootingChecker::filterGarbage(Mat& imgBinary) {
+void ShootingChecker::filterGarbage(Mat& imgBinary) const {
 	const int IMG_BINARIES_SIZE = 1;
 
 	static std::deque<cv::Mat> imgBinaries;
@@ -172,10 +167,8 @@ void ShootingChecker::filterGarbage(Mat& imgBinary) {
 		imgBinaries.pop_front();
 }
 
-void ShootingChecker::eleminateDefects(vector<Vec4i>& defects, const vector<Point> contour, const Rect& bRect){
-	// TODO: all constansts have to be in one place
-	int distanceTolerance = bRect.height / 5;
-	const float angleTolerance = 95;
+void ShootingChecker::eleminateDefects(vector<Vec4i>& defects, const vector<Point> contour, const Rect& bRect) const {
+	int distanceTolerance = bRect.height / COMP_PART_OF_BRECT_SIDE;
 
 	vector<Vec4i> newDefects;
 	int startidx, endidx, faridx;
@@ -187,7 +180,7 @@ void ShootingChecker::eleminateDefects(vector<Vec4i>& defects, const vector<Poin
 		int yLimit = bRect.y + 3 * bRect.height / 4;
 		if(distanceP2P(ptStart, ptFar) > distanceTolerance && 
 		   distanceP2P(ptEnd, ptFar) > distanceTolerance && 
-		   getAngle(ptStart, ptFar, ptEnd) < angleTolerance &&
+		   getAngle(ptStart, ptFar, ptEnd) < FINGERS_MAX_ANGLE &&
 		   ptEnd.y < yLimit && ptStart.y < yLimit) {
 			newDefects.push_back(defect);
 		}
@@ -198,9 +191,9 @@ void ShootingChecker::eleminateDefects(vector<Vec4i>& defects, const vector<Poin
 
 // remove endpoint of convexity defects if they are at the same fingertip
 // TODO: very strange function, can't understand what it actually does
-void ShootingChecker::removeRedundantEndPoints(vector<Point> contour, vector<Vec4i>& newDefects, Rect bRect){
-	float tolerance=bRect.width / 6;
-	for(int i=0; i < newDefects.size(); i++) {
+void ShootingChecker::removeRedundantEndPoints(vector<Point> contour, const vector<Vec4i> newDefects, const Rect& bRect) const {
+	float tolerance = bRect.width / 6;
+	for(int i = 0; i < newDefects.size(); i++) {
 		Vec4i defect1 = newDefects[i];
 		for(int j = i; j < newDefects.size(); j++) {
 			Vec4i defect2 = newDefects[j];
@@ -218,35 +211,30 @@ void ShootingChecker::removeRedundantEndPoints(vector<Point> contour, vector<Vec
 	}
 }
 
-Point ShootingChecker::getFingerTip(vector<Point> contour, const vector<Point> hullPoints, const Rect& bRect){
-	// TODO: all consts have to be in one place
-	const int EPS = 20;
-	int yTol = bRect.height / 6;
-	int xTol = bRect.width / 5;
+Point ShootingChecker::getFingerTip(vector<Point> contour, const vector<Point> hullPoints, const Rect& bRect) const {
+	int yTol = bRect.height / COMP_PART_OF_BRECT_SIDE;
+	int xTol = bRect.width / COMP_PART_OF_BRECT_SIDE;
 
 	Point highestP = *min_element(contour.begin(), contour.end(), [](const Point& p1, const Point& p2) {
 			return p1.y < p2.y;
 		});
         bool isShootingHand = none_of(hullPoints.begin(), hullPoints.end(), [highestP, yTol, xTol](Point v) {
-			bool b = v.y < highestP.y + yTol && abs(v.y - highestP.y) > yTol / 3 && abs(v.x - highestP.x) > xTol;
+			bool b = v.y < highestP.y + yTol && abs(v.y - highestP.y) > yTol && abs(v.x - highestP.x) > xTol;
 #if DEVEL == 1
 			if (b) {
 				cerr << "Bad:" << endl;
-				cerr << "v = " << v << " p = " << highestP << " p+tol = " << highestP.y + yTol << endl;
+				cerr << "v = " << v << "; p = " << highestP << "; yp+yTol = " << highestP.y + yTol << endl;
 			}
 #endif
 			return b;
 		});
-	if(isShootingHand) {
+	if(isShootingHand)
 		return highestP;
-	}
 	return Point();
 }
 
-Point ShootingChecker::getDirectionPoint(const Point& fingerTip, vector<Point> contour, const Rect& bRect){
-	// TODO: move all constants to some single place
-	int tolerance = bRect.height / 6;
-	const float angleTol = 150.f;
+Point ShootingChecker::getDirectionPoint(const Point& fingerTip, vector<Point> contour, const Rect& bRect) const {
+	int tolerance = bRect.height / COMP_PART_OF_BRECT_SIDE;
 
 	vector<Point>::iterator it = find(contour.begin(), contour.end(), fingerTip);
 	Point p1;
@@ -282,7 +270,12 @@ Point ShootingChecker::getDirectionPoint(const Point& fingerTip, vector<Point> c
 	return (p1 + p2) * 0.5f;
 }
 
-float ShootingChecker::getAngle(const Point& s, const Point& f, const Point& e){
+int ShootingChecker::getMedian(vector<int> v) const {
+	sort(v.begin(), v.end());
+	return v.size() % 2 == 0 ? v[v.size() / 2 - 1] : v[v.size() / 2];
+}
+
+float ShootingChecker::getAngle(const Point& s, const Point& f, const Point& e) const {
 	float l1 = distanceP2P(f, s);
 	float l2 = distanceP2P(f, e);
 	float dot = (s.x - f.x) * (e.x - f.x) + (s.y - f.y) * (e.y - f.y);
@@ -291,7 +284,7 @@ float ShootingChecker::getAngle(const Point& s, const Point& f, const Point& e){
 	return angle;
 }
 
-float ShootingChecker::distanceP2P(const Point& a, const Point& b){
+float ShootingChecker::distanceP2P(const Point& a, const Point& b) const {
 	Point c = a - b;
 	return sqrt(c.x * c.x + c.y * c.y);
 }

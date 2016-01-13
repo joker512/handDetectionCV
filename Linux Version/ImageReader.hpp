@@ -8,7 +8,7 @@ class ImageReader{
 public:
 	ImageReader(int webCamera);
 	ImageReader(const string& filename);
-	void read(Mat& src);
+	bool read(Mat& src);
 
 	Size roiSize;
 

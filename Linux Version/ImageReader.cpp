@@ -17,12 +17,16 @@ ImageReader::ImageReader(const string& filename){
 		throw invalid_argument("File " + filename + " doesn't exist");
 }
 
-void ImageReader::read(Mat& src){
+bool ImageReader::read(Mat& src) {
 	Mat tmp;
-	cap >> tmp;
-	if (!isCamera){
+	if (!cap.read(tmp))
+		return false;
+
+	if (!isCamera) {
 		transpose(tmp, tmp);
 	}
 	flip(tmp, tmp, 1);
 	tmp(Rect(0, tmp.rows - roiSize.height, roiSize.width, roiSize.height)).copyTo(src);
+
+	return true;
 }
